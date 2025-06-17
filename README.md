@@ -1,0 +1,2 @@
+# AutoLoot
+AutoLoot Mod
