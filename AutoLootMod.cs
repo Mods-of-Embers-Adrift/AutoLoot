@@ -9,6 +9,7 @@ using SoL.Game.Objects.Archetypes;
 using System.Runtime.CompilerServices;
 using UnityEngine;
 using System.Linq;
+using System.Collections;
 
 namespace AutoLootMod
 {
@@ -23,6 +24,8 @@ namespace AutoLootMod
     [HarmonyPatch(typeof(ContainerInstance), "Add")]
     public static class AutoLootPatch_ContainerInstance
     {
+        private static ConditionalWeakTable<ContainerInstance, object> _lootedContainers = new ConditionalWeakTable<ContainerInstance, object>();
+
         static void Postfix(ContainerInstance __instance, ArchetypeInstance instance, bool update)
         {
             if (__instance.ContainerType != ContainerType.Loot)
@@ -33,20 +36,39 @@ namespace AutoLootMod
             if (playerInventory == null || __instance == playerInventory)
                 return;
 
-            if (__instance.Count > 0)
+            if (__instance.Count > 0 && !HasLooted(__instance))
             {
-                if (!HasLooted(__instance))
+                MarkAsLooted(__instance);
+
+                if (HasNeedOrGreedItems(__instance))
                 {
-                    MarkAsLooted(__instance);
-
-                    if (HasNeedOrGreedItems(__instance))
-                    {
-                        MelonLogger.Msg("[AutoLootMod] Skipping auto-loot: loot roll (Need/Greed) is pending on at least one item.");
-                        return;
-                    }
-
-                    __instance.MoveContentsToContainerInstance(playerInventory, true, false);
+                    MelonLogger.Msg("[AutoLootMod] Skipping auto-loot: loot roll (Need/Greed) is pending on at least one item.");
+                    return;
                 }
+
+                TryAutoLootWithRetry(__instance, playerInventory);
+            }
+        }
+
+        private static void TryAutoLootWithRetry(ContainerInstance loot, ContainerInstance playerInventory)
+        {
+            loot.MoveContentsToContainerInstance(playerInventory, true, false);
+            MelonCoroutines.Start(RetryLootCoroutine(loot, playerInventory));
+        }
+
+        private static IEnumerator RetryLootCoroutine(ContainerInstance loot, ContainerInstance playerInventory)
+        {
+            int maxTries = 20;
+            int tries = 0;
+            while (loot.Count > 0 && tries < maxTries)
+            {
+                yield return new WaitForSeconds(0.05f);
+                loot.MoveContentsToContainerInstance(playerInventory, true, false);
+                tries++;
+            }
+            if (loot.Count > 0)
+            {
+                MelonLogger.Msg($"[AutoLootMod] Warning: After {maxTries} auto-loot attempts, {loot.Count} items remain.");
             }
         }
 
@@ -75,7 +97,6 @@ namespace AutoLootMod
             return false;
         }
 
-        private static ConditionalWeakTable<ContainerInstance, object> _lootedContainers = new ConditionalWeakTable<ContainerInstance, object>();
         private static bool HasLooted(ContainerInstance container) => _lootedContainers.TryGetValue(container, out _);
         private static void MarkAsLooted(ContainerInstance container) => _lootedContainers.GetValue(container, _ => new object());
     }
