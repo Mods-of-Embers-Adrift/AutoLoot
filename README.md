@@ -8,17 +8,19 @@
 - Works for any loot window (mob drops, chests, etc).
 - Only triggers when items are actually present—never misses loot due to timing.
 - Ensures loot is only taken once per container, even if items arrive in batches.
+- **Loot Roll Aware:** If any item in the loot container is under a pending need/greed (loot roll) state, auto-looting is skipped for that container to prevent interfering with loot distribution.
 
 ## How It Works
 
-AutoLootMod hooks into the game’s container system and listens for new loot items being added to loot containers. When a loot window is opened and items arrive, the mod automatically calls the same logic as pressing "Take All", transferring all loot to your inventory immediately.
+AutoLootMod hooks into the game’s container system and listens for new loot items being added to loot containers. When a loot window is opened and items arrive, the mod automatically calls the same logic as pressing "Take All", transferring all loot to your inventory immediately—**unless any item is currently pending a loot roll** (Need/Greed), in which case the mod will skip auto-looting for that container.
 
 ## Compatibility
+
 - Game: **Embers Adrift**
 
 ## Credits
 
-Developed by **MrJambix**.  
+Developed by **MrJambix**.
 
 ## Disclaimer
 

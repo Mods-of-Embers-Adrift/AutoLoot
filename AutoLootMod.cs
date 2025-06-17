@@ -1,12 +1,14 @@
 ﻿using MelonLoader;
 using HarmonyLib;
 using System.Reflection;
-using System.Collections;
+using System.Collections.Generic;
 using SoL.Game;
 using SoL.Game.UI;
 using SoL.Game.Objects.Containers;
 using SoL.Game.Objects.Archetypes;
 using System.Runtime.CompilerServices;
+using UnityEngine;
+using System.Linq;
 
 namespace AutoLootMod
 {
@@ -15,7 +17,6 @@ namespace AutoLootMod
         public override void OnInitializeMelon()
         {
             HarmonyInstance.PatchAll(typeof(AutoLootPatch_ContainerInstance));
-            MelonLogger.Msg("AutoLootMod initialized and Harmony patched (ContainerInstance events).");
         }
     }
 
@@ -37,11 +38,41 @@ namespace AutoLootMod
                 if (!HasLooted(__instance))
                 {
                     MarkAsLooted(__instance);
-                    MelonLogger.Msg("[AutoLootMod] Auto-looting items from loot container!");
-                    var response = __instance.MoveContentsToContainerInstance(playerInventory, true, false);
-                    MelonLogger.Msg($"[AutoLootMod] Looted {response.Items?.Length ?? 0} items, currency: {response.Currency}");
+
+                    if (HasNeedOrGreedItems(__instance))
+                    {
+                        MelonLogger.Msg("[AutoLootMod] Skipping auto-loot: loot roll (Need/Greed) is pending on at least one item.");
+                        return;
+                    }
+
+                    __instance.MoveContentsToContainerInstance(playerInventory, true, false);
                 }
             }
+        }
+
+        private static bool HasNeedOrGreedItems(ContainerInstance container)
+        {
+            var lootRollWindow = GameObject.FindObjectOfType<SoL.Game.UI.Loot.LootRollWindow>();
+            if (lootRollWindow == null)
+                return false;
+
+            var lootRollItemsField = lootRollWindow.GetType().GetField("m_lootRollitems", BindingFlags.NonPublic | BindingFlags.Instance);
+            var lootRollItems = lootRollItemsField.GetValue(lootRollWindow) as SoL.Game.UI.Loot.LootRollItemUI[];
+            if (lootRollItems == null)
+                return false;
+
+            foreach (var slot in lootRollItems)
+            {
+                var m_itemField = typeof(SoL.Game.UI.Loot.LootRollItemUI).GetField("m_item", BindingFlags.NonPublic | BindingFlags.Instance);
+                var lootRollItem = m_itemField.GetValue(slot) as SoL.Game.Loot.LootRollItem;
+                if (slot.Occupied && lootRollItem != null && lootRollItem.Status == SoL.Game.Loot.LootRollStatus.Pending)
+                {
+                    if (lootRollItem.Instance != null && container.Instances.Contains(lootRollItem.Instance))
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         private static ConditionalWeakTable<ContainerInstance, object> _lootedContainers = new ConditionalWeakTable<ContainerInstance, object>();
