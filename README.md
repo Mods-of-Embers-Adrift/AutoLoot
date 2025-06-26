@@ -1,5 +1,8 @@
 # AutoLootMod
 
+# Currently down please do not use at this time
+
+
 **AutoLootMod** is a quality-of-life mod for Embers Adrift that automatically loots all items and currency from loot windows as soon as they appear. No more clicking "Take All"—just open any loot window and watch your loot instantly transfer to your inventory!
 
 ## Features
